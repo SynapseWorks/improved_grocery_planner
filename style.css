@@ -1,0 +1,242 @@
+/*
+  Styling for the improved Grocery Planner web app.  This stylesheet
+  re‑uses the natural, solarpunk palette from the original
+  Grocery‑Planner project.  Cards are used to organise the recipe,
+  pantry, planning and grocery list sections.  The layout is
+  responsive and mobile friendly.
+*/
+
+:root {
+  --bg: #f5f3e0; /* light beige background */
+  --card-bg: #fffdf5; /* slightly lighter card background */
+  --accent: #8abf69; /* muted green for buttons and highlights */
+  --accent-dark: #5c8c47; /* darker shade for hover states */
+  --text: #333; /* dark grey text for readability */
+  --heading: #2c491b; /* deep green for headings */
+  --secondary: #d9a441; /* golden accent used sparingly */
+  --border: #e0dab8; /* subtle border colour */
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--secondary) 100%);
+  color: white;
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: 0.05rem;
+}
+
+header p {
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
+nav {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  background-color: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+nav button {
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--heading);
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+nav button.active,
+nav button:hover {
+  border-bottom-color: var(--accent);
+}
+
+main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+}
+
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1rem;
+  width: 100%;
+  max-width: 800px;
+}
+
+.card h2 {
+  margin-top: 0;
+  color: var(--heading);
+  font-size: 1.25rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+  color: var(--heading);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  background-color: #fff;
+  color: var(--text);
+}
+
+textarea {
+  resize: vertical;
+}
+
+button.primary {
+  padding: 0.5rem 1rem;
+  background-color: var(--accent);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+button.primary:hover,
+button.primary:focus {
+  background-color: var(--accent-dark);
+}
+
+button.secondary {
+  padding: 0.5rem 1rem;
+  background-color: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+button.secondary:hover,
+button.secondary:focus {
+  background-color: var(--accent);
+  color: white;
+}
+
+.section-hidden {
+  display: none;
+}
+
+.pantry-list,
+.recipe-list,
+.grocery-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pantry-list li,
+.recipe-list li,
+.grocery-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.pantry-list li:last-child,
+.recipe-list li:last-child,
+.grocery-list li:last-child {
+  border-bottom: none;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.meal-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.meal-table th,
+.meal-table td {
+  border: 1px solid var(--border);
+  padding: 0.25rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.meal-table th {
+  background-color: var(--accent);
+  color: white;
+}
+
+.meal-table select {
+  width: 100%;
+  padding: 0.25rem;
+}
+
+.ingredient-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.ingredient-row input[type="number"] {
+  max-width: 70px;
+}
+
+.ingredient-row select {
+  flex-basis: 30%;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--accent-dark);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.close-btn:hover {
+  color: var(--secondary);
+}

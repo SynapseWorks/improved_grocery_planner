@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Improved Grocery Planner</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Grocery Planner</h1>
+      <p>Meal planning and shopping made simple</p>
+    </header>
+    <nav>
+      <button data-section="plan" class="active">Plan</button>
+      <button data-section="recipes">Recipes</button>
+      <button data-section="pantry">Pantry</button>
+      <button data-section="grocery">List</button>
+    </nav>
+    <main>
+      <!-- Plan Section -->
+      <section id="plan" class="card">
+        <div class="section-header">
+          <h2>Weekly Plan</h2>
+          <div>
+            <label for="week-start">Week starting:</label>
+            <input type="date" id="week-start" />
+          </div>
+        </div>
+        <div id="plan-container"></div>
+      </section>
+      <!-- Recipes Section -->
+      <section id="recipes" class="card section-hidden">
+        <h2>Recipes</h2>
+        <form id="recipe-form">
+          <label for="recipe-title">Recipe title</label>
+          <input type="text" id="recipe-title" required />
+          <label for="recipe-instructions">Instructions</label>
+          <textarea id="recipe-instructions" rows="4" placeholder="Describe how to prepare this recipe..."></textarea>
+          <h3>Ingredients</h3>
+          <div id="ingredients-container"></div>
+          <button type="button" id="add-ingredient" class="secondary">Add Ingredient</button>
+          <br />
+          <button type="submit" class="primary">Save Recipe</button>
+        </form>
+        <h3>Saved Recipes</h3>
+        <ul id="recipe-list" class="recipe-list"></ul>
+      </section>
+      <!-- Pantry Section -->
+      <section id="pantry" class="card section-hidden">
+        <h2>Pantry</h2>
+        <form id="pantry-form">
+          <label for="pantry-name">Item name</label>
+          <input type="text" id="pantry-name" required />
+          <div class="ingredient-row">
+            <div>
+              <label for="pantry-qty">Qty</label>
+              <input type="number" id="pantry-qty" min="0" step="any" required />
+            </div>
+            <div>
+              <label for="pantry-unit">Unit</label>
+              <select id="pantry-unit"></select>
+            </div>
+            <div>
+              <label for="pantry-section">Section</label>
+              <select id="pantry-section"></select>
+            </div>
+            <div>
+              <label for="pantry-date">Best before</label>
+              <input type="date" id="pantry-date" />
+            </div>
+          </div>
+          <button type="submit" class="primary">Add to Pantry</button>
+        </form>
+        <h3>Current Pantry</h3>
+        <ul id="pantry-list" class="pantry-list"></ul>
+      </section>
+      <!-- Grocery List Section -->
+      <section id="grocery" class="card section-hidden">
+        <h2>Grocery List</h2>
+        <button id="generate-list" class="primary">Generate List</button>
+        <ul id="grocery-list" class="grocery-list"></ul>
+      </section>
+    </main>
+    <script src="script.js"></script>
+  </body>
+</html>
