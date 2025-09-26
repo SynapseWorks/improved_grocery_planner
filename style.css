@@ -178,6 +178,17 @@ button.secondary:focus {
   border-bottom: 1px solid var(--border);
 }
 
+/* Override default spacing for grocery list items.  When rendering
+   grocery items with checkboxes, we don’t want large gaps between
+   the checkbox and its label.  The default list style uses
+   `justify-content: space-between`, which pushes the label all
+   the way to the right.  For grocery list items specifically,
+   align content to the start and introduce a small gap. */
+.grocery-list li {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
 .pantry-list li:last-child,
 .recipe-list li:last-child,
 .grocery-list li:last-child {

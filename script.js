@@ -514,6 +514,11 @@ document.addEventListener('DOMContentLoaded', () => {
     items.forEach((i) => {
       i.qty = parseFloat(i.qty.toFixed(2));
     });
+    // Remove any items that lack a valid name.  Old versions of the
+    // application may have persisted blank entries, which would
+    // otherwise appear as empty rows in the grocery list.  Skip
+    // entries with no name or only whitespace.
+    items = items.filter((i) => i.name && i.name.trim().length > 0);
     // Restore checked state from previous last list if same item exists
     items.forEach((i) => {
       i.checked = false;
@@ -912,6 +917,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Group items by section
     const groups = {};
     lastList.items.forEach((item, idx) => {
+      // Skip invalid items without a name to avoid blank rows
+      if (!item || !item.name || item.name.trim().length === 0) return;
       // Determine whether to include this item based on toggles
       if (hideCovered && item.covered) return;
       if (hideChecked && item.checked) return;
