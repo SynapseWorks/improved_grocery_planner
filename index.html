@@ -86,8 +86,10 @@
         <div id="list-controls" class="list-controls section-hidden">
           <label><input type="checkbox" id="hide-checked" /> Hide checked</label>
           <label><input type="checkbox" id="hide-covered" /> Hide covered</label>
-          <button id="copy-list" class="secondary">Copy</button>
-          <button id="print-list" class="secondary">Print</button>
+          <button id="copy-list" class="secondary" aria-label="Copy grocery list to clipboard">Copy</button>
+          <button id="print-list" class="secondary" aria-label="Print grocery list">Print</button>
+          <!-- Inline copy feedback appears briefly after copying -->
+          <span id="copy-feedback" aria-live="polite"></span>
         </div>
         <ul id="grocery-list" class="grocery-list"></ul>
       </section>
@@ -97,8 +99,8 @@
         <h2>Settings &amp; Backup</h2>
         <p>Export your data to a file or import a previously saved backup. This can help you migrate between browsers or restore after clearing storage.</p>
         <div class="settings-actions">
-          <button id="export-data" class="primary">Export Data</button>
-          <button id="import-data" class="secondary">Import Data</button>
+          <button id="export-data" class="primary" aria-label="Export data backup to file">Export Data</button>
+          <button id="import-data" class="secondary" aria-label="Import data backup from file">Import Data</button>
           <input type="file" id="import-file" accept="application/json" hidden />
         </div>
         <p id="settings-info" class="settings-info"></p>
