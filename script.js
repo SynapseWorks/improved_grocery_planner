@@ -54,6 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let carriedItems = [];
   // Track recipe currently being edited; null when creating new
   let editingRecipeId = null;
+  // Track pantry item currently being edited; null when adding new
+  let editingPantryId = null;
 
   /**
    * Load persisted data from localStorage into in‑memory structures.
@@ -336,6 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const removeBtn = document.createElement('button');
           removeBtn.type = 'button';
           removeBtn.classList.add('close-btn');
+          removeBtn.setAttribute('aria-label', 'Remove ingredient');
           removeBtn.textContent = '✕';
           removeBtn.addEventListener('click', () => {
             container.removeChild(row);
@@ -357,6 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const delBtn = document.createElement('button');
       delBtn.classList.add('close-btn');
       delBtn.title = 'Delete recipe';
+      delBtn.setAttribute('aria-label', `Delete recipe: ${recipe.title}`);
       delBtn.textContent = '✕';
       delBtn.addEventListener('click', () => {
         if (
@@ -387,6 +391,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
       li.appendChild(delBtn);
+
+      // Instructions toggle button and container
+      // Only add if instructions exist
+      if (recipe.instructions && recipe.instructions.trim().length > 0) {
+        const infoBtn = document.createElement('button');
+        infoBtn.classList.add('info-btn');
+        infoBtn.setAttribute('aria-label', `Show instructions for ${recipe.title}`);
+        infoBtn.title = 'Show/hide instructions';
+        infoBtn.textContent = 'ℹ';
+        const instrDiv = document.createElement('div');
+        instrDiv.classList.add('recipe-instructions');
+        instrDiv.textContent = recipe.instructions;
+        instrDiv.style.display = 'none';
+        infoBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isHidden = instrDiv.style.display === 'none';
+          instrDiv.style.display = isHidden ? 'block' : 'none';
+          // Optionally toggle icon orientation
+          infoBtn.textContent = isHidden ? '▼' : 'ℹ';
+        });
+        li.appendChild(infoBtn);
+        li.appendChild(instrDiv);
+      }
       listEl.appendChild(li);
     });
   }
@@ -414,9 +441,35 @@ document.addEventListener('DOMContentLoaded', () => {
       secSpan.style.fontSize = '0.8rem';
       secSpan.style.color = 'var(--accent-dark)';
       li.appendChild(secSpan);
+      // Edit button
+      const editBtn = document.createElement('button');
+      editBtn.classList.add('close-btn');
+      editBtn.title = 'Edit item';
+      editBtn.setAttribute('aria-label', `Edit item: ${item.name}`);
+      editBtn.textContent = '✎';
+      editBtn.addEventListener('click', () => {
+        // Load item into pantry form for editing
+        editingPantryId = item.id;
+        document.getElementById('pantry-name').value = item.name;
+        document.getElementById('pantry-qty').value = item.qty;
+        document.getElementById('pantry-unit').value = item.unitId;
+        document.getElementById('pantry-section').value = item.sectionId;
+        document.getElementById('pantry-date').value = item.bestBefore || '';
+        // Show cancel editing button and change submit button text
+        document.getElementById('cancel-pantry-edit').classList.remove('section-hidden');
+        document.getElementById('pantry-submit').textContent = 'Save Changes';
+        // Switch to Pantry tab
+        document.querySelectorAll('nav button').forEach((b) => b.classList.remove('active'));
+        document.querySelector('nav button[data-section="pantry"]').classList.add('active');
+        document.querySelectorAll('main > section').forEach((sec) => sec.classList.add('section-hidden'));
+        document.getElementById('pantry').classList.remove('section-hidden');
+      });
+      li.appendChild(editBtn);
+      // Delete button
       const delBtn = document.createElement('button');
       delBtn.classList.add('close-btn');
       delBtn.title = 'Remove item';
+      delBtn.setAttribute('aria-label', `Remove item: ${item.name}`);
       delBtn.textContent = '✕';
       delBtn.addEventListener('click', () => {
         pantry = pantry.filter((p) => p.id !== item.id);
@@ -598,6 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.classList.add('close-btn');
+    removeBtn.setAttribute('aria-label', 'Remove ingredient');
     removeBtn.textContent = '✕';
     removeBtn.addEventListener('click', () => {
       container.removeChild(row);
@@ -713,14 +767,36 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Please provide an item name and quantity.');
         return;
       }
-      pantry.push({
-        id: generateId(),
-        name,
-        qty,
-        unitId,
-        sectionId,
-        bestBefore,
-      });
+      if (editingPantryId) {
+        // Update existing item
+        const idx = pantry.findIndex((p) => p.id === editingPantryId);
+        if (idx >= 0) {
+          pantry[idx] = {
+            ...pantry[idx],
+            name,
+            qty,
+            unitId,
+            sectionId,
+            bestBefore,
+          };
+          showToast(`Updated pantry item: ${name}`);
+        }
+        editingPantryId = null;
+        // Reset button label and hide cancel
+        document.getElementById('pantry-submit').textContent = 'Add to Pantry';
+        document.getElementById('cancel-pantry-edit').classList.add('section-hidden');
+      } else {
+        // Add new item
+        pantry.push({
+          id: generateId(),
+          name,
+          qty,
+          unitId,
+          sectionId,
+          bestBefore,
+        });
+        showToast(`Added to pantry: ${name}`);
+      }
       saveData();
       // Clear form
       form.reset();
@@ -728,8 +804,15 @@ document.addEventListener('DOMContentLoaded', () => {
       populateUnitSelect(document.getElementById('pantry-unit'));
       populateSectionSelect(document.getElementById('pantry-section'));
       renderPantry();
-      // Provide feedback to the user
-      showToast(`Added to pantry: ${name}`);
+    });
+    // Cancel pantry editing
+    document.getElementById('cancel-pantry-edit').addEventListener('click', () => {
+      editingPantryId = null;
+      form.reset();
+      populateUnitSelect(document.getElementById('pantry-unit'));
+      populateSectionSelect(document.getElementById('pantry-section'));
+      document.getElementById('pantry-submit').textContent = 'Add to Pantry';
+      document.getElementById('cancel-pantry-edit').classList.add('section-hidden');
     });
   }
 
@@ -748,6 +831,11 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPlan(initialWeek);
     weekStartInput.addEventListener('change', () => {
       const ws = getWeekStart(weekStartInput.value);
+      // Always update the input to the Monday of the selected week so that
+      // the displayed date matches the planner’s internal week start.  This
+      // prevents confusion when a mid‑week date is chosen.  See test report
+      // suggestions for clarification.
+      weekStartInput.value = ws;
       // If we have a previous list with unchecked items and are changing to a new week, ask to carry forward
       if (lastList && lastList.weekStart && lastList.items && lastList.items.length > 0 && lastList.weekStart !== ws) {
         const leftovers = lastList.items.filter((i) => !i.checked && i.qty > 0);
@@ -828,16 +916,20 @@ document.addEventListener('DOMContentLoaded', () => {
       fileInput.value = '';
       fileInput.click();
     });
-    fileInput.addEventListener('change', (e) => {
+      fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = () => {
         try {
           const data = JSON.parse(reader.result);
-          recipes = data.recipes || [];
-          pantry = data.pantry || [];
-          weeks = data.weeks || {};
+          // Basic validation: ensure top‑level keys exist and types are correct
+          if (!data || typeof data !== 'object') throw new Error();
+          if (!Array.isArray(data.recipes) || !Array.isArray(data.pantry) || typeof data.weeks !== 'object' || !data.weeks) throw new Error();
+          // lastList may be undefined; default to empty structure
+          recipes = data.recipes;
+          pantry = data.pantry;
+          weeks = data.weeks;
           lastList = data.lastList || { weekStart: null, items: [] };
           saveData();
           // Rebuild UI
@@ -849,13 +941,14 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPlan(ws);
           }
           // If a list was previously saved for this week, render it
-          if (lastList && lastList.weekStart === getWeekStart(wsInput.value)) {
+          const currentWeekStart = wsInput.value ? getWeekStart(wsInput.value) : null;
+          if (lastList && lastList.weekStart === currentWeekStart) {
             document.getElementById('list-controls').classList.remove('section-hidden');
             renderGroceryList();
           }
           showToast('Data imported successfully');
         } catch (err) {
-          alert('Failed to import data: invalid file format');
+          showToast('Failed to import: invalid backup file');
         }
       };
       reader.readAsText(file);

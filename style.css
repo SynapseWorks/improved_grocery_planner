@@ -178,6 +178,33 @@ button.secondary:focus {
   border-bottom: 1px solid var(--border);
 }
 
+/* Allow recipe list items to wrap so instructions can appear beneath title */
+.recipe-list li {
+  flex-wrap: wrap;
+}
+
+/* Info button used to toggle recipe instructions */
+.info-btn {
+  background: none;
+  border: none;
+  color: var(--accent-dark);
+  font-size: 1rem;
+  cursor: pointer;
+  margin-left: 0.5rem;
+}
+.info-btn:hover {
+  color: var(--secondary);
+}
+
+/* Instructions text displayed beneath recipe titles */
+.recipe-instructions {
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--heading);
+  white-space: pre-wrap;
+}
+
 /* Override default spacing for grocery list items.  When rendering
    grocery items with checkboxes, we don’t want large gaps between
    the checkbox and its label.  The default list style uses
