@@ -943,6 +943,17 @@ document.addEventListener('DOMContentLoaded', () => {
           const checkboxId = `gl-${item.index}`;
           checkbox.id = checkboxId;
           checkbox.checked = !!item.checked;
+          // Provide an aria-label on the checkbox for accessibility.  This
+          // label contains the quantity, unit and item name so that
+          // screen readers can announce the item without relying on
+          // visual context.  Append a note when the item is fully
+          // covered by the pantry so that users know it is optional.
+          {
+            const unitObj = units.find((u) => u.id === item.unitId);
+            const baseLabel = `${item.qty} ${unitObj ? unitObj.short : ''} ${item.name}`.trim();
+            const aria = item.covered ? `${baseLabel} (covered by pantry)` : baseLabel;
+            checkbox.setAttribute('aria-label', aria);
+          }
           checkbox.addEventListener('change', () => {
             lastList.items[item.index].checked = checkbox.checked;
             saveData();
@@ -953,8 +964,10 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           const label = document.createElement('label');
           label.setAttribute('for', checkboxId);
-          const unitObj = units.find((u) => u.id === item.unitId);
-          label.textContent = `${item.qty} ${unitObj ? unitObj.short : ''} ${item.name}`;
+          {
+            const unitObj = units.find((u) => u.id === item.unitId);
+            label.textContent = `${item.qty} ${unitObj ? unitObj.short : ''} ${item.name}`;
+          }
           li.appendChild(checkbox);
           li.appendChild(label);
           listEl.appendChild(li);
@@ -976,6 +989,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const checkboxId = `gl-${item.index}`;
           checkbox.id = checkboxId;
           checkbox.checked = !!item.checked;
+          // Provide an aria-label on the checkbox for accessibility.
+          {
+            const unitObj = units.find((u) => u.id === item.unitId);
+            const baseLabel = `${item.qty} ${unitObj ? unitObj.short : ''} ${item.name}`.trim();
+            const aria = item.covered ? `${baseLabel} (covered by pantry)` : baseLabel;
+            checkbox.setAttribute('aria-label', aria);
+          }
           checkbox.addEventListener('change', () => {
             lastList.items[item.index].checked = checkbox.checked;
             saveData();
@@ -985,8 +1005,10 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           const label = document.createElement('label');
           label.setAttribute('for', checkboxId);
-          const unitObj = units.find((u) => u.id === item.unitId);
-          label.textContent = `${item.qty} ${unitObj ? unitObj.short : ''} ${item.name}`;
+          {
+            const unitObj = units.find((u) => u.id === item.unitId);
+            label.textContent = `${item.qty} ${unitObj ? unitObj.short : ''} ${item.name}`;
+          }
           li.appendChild(checkbox);
           li.appendChild(label);
           listEl.appendChild(li);
