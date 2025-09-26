@@ -43,6 +43,17 @@ document.addEventListener('DOMContentLoaded', () => {
   let recipes = [];
   let pantry = [];
   let weeks = {};
+  // Persisted grocery list from the last generation.  This array
+  // stores objects { id, name, qty, unitId, sectionId, covered, checked } and
+  // the weekStart they were generated for.  Used to carry leftovers and
+  // restore checkbox state.
+  let lastList = { weekStart: null, items: [] };
+  // Carried over items when starting a new week.  This is populated
+  // when the user opts to carry forward leftover items from the
+  // previous week.
+  let carriedItems = [];
+  // Track recipe currently being edited; null when creating new
+  let editingRecipeId = null;
 
   /**
    * Load persisted data from localStorage into in‑memory structures.
@@ -66,6 +77,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       weeks = {};
     }
+    try {
+      const ll = localStorage.getItem('gp_lastList');
+      lastList = ll ? JSON.parse(ll) : { weekStart: null, items: [] };
+    } catch (err) {
+      lastList = { weekStart: null, items: [] };
+    }
   }
 
   /**
@@ -75,6 +92,10 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('gp_recipes', JSON.stringify(recipes));
     localStorage.setItem('gp_pantry', JSON.stringify(pantry));
     localStorage.setItem('gp_weeks', JSON.stringify(weeks));
+    // Also persist last generated list separately if present
+    if (lastList && lastList.items) {
+      localStorage.setItem('gp_lastList', JSON.stringify(lastList));
+    }
   }
 
   /**
@@ -128,6 +149,44 @@ document.addEventListener('DOMContentLoaded', () => {
     monday.setDate(d.getDate() + diff);
     monday.setHours(0, 0, 0, 0);
     return monday.toISOString().substr(0, 10);
+  }
+
+  /**
+   * Show a transient toast notification at the bottom of the page.
+   * @param {string} message The message to display.
+   * @param {number} duration Duration in ms before removal (default 3000).
+   */
+  function showToast(message, duration = 3000) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const div = document.createElement('div');
+    div.className = 'toast';
+    div.textContent = message;
+    container.appendChild(div);
+    setTimeout(() => {
+      div.remove();
+    }, duration);
+  }
+
+  /**
+   * Convert between compatible units (grams/kilograms, millilitres/litres).
+   * Returns the converted value or null if conversion is not supported.
+   * @param {number} value
+   * @param {string} fromUnit
+   * @param {string} toUnit
+   */
+  function convertUnit(value, fromUnit, toUnit) {
+    if (fromUnit === toUnit) return value;
+    const conversions = {
+      g: { kg: (v) => v / 1000 },
+      kg: { g: (v) => v * 1000 },
+      ml: { l: (v) => v / 1000 },
+      l: { ml: (v) => v * 1000 },
+    };
+    if (conversions[fromUnit] && conversions[fromUnit][toUnit]) {
+      return conversions[fromUnit][toUnit](value);
+    }
+    return null;
   }
 
   /**
@@ -237,9 +296,64 @@ document.addEventListener('DOMContentLoaded', () => {
     listEl.innerHTML = '';
     recipes.forEach((recipe) => {
       const li = document.createElement('li');
+      // Title span
       const span = document.createElement('span');
       span.textContent = recipe.title;
+      span.style.cursor = 'pointer';
+      span.title = 'Click to edit';
+      span.addEventListener('click', () => {
+        // Load recipe into form for editing
+        editingRecipeId = recipe.id;
+        // Populate form fields
+        document.getElementById('recipe-title').value = recipe.title;
+        document.getElementById('recipe-instructions').value = recipe.instructions;
+        const container = document.getElementById('ingredients-container');
+        container.innerHTML = '';
+        recipe.ingredients.forEach((ing) => {
+          // Add a row prefilled
+          const row = document.createElement('div');
+          row.classList.add('ingredient-row');
+          const nameInput = document.createElement('input');
+          nameInput.type = 'text';
+          nameInput.value = ing.name;
+          nameInput.required = true;
+          row.appendChild(nameInput);
+          const qtyInput = document.createElement('input');
+          qtyInput.type = 'number';
+          qtyInput.min = '0';
+          qtyInput.step = 'any';
+          qtyInput.value = ing.qty;
+          qtyInput.required = true;
+          row.appendChild(qtyInput);
+          const unitSelect = document.createElement('select');
+          populateUnitSelect(unitSelect);
+          unitSelect.value = ing.unitId;
+          row.appendChild(unitSelect);
+          const sectionSelect = document.createElement('select');
+          populateSectionSelect(sectionSelect);
+          sectionSelect.value = ing.sectionId;
+          row.appendChild(sectionSelect);
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.classList.add('close-btn');
+          removeBtn.textContent = '✕';
+          removeBtn.addEventListener('click', () => {
+            container.removeChild(row);
+          });
+          row.appendChild(removeBtn);
+          container.appendChild(row);
+        });
+        // Show cancel editing button and change save button text
+        document.getElementById('cancel-edit').classList.remove('section-hidden');
+        document.querySelector('#recipe-form button.primary').textContent = 'Save Changes';
+        // Switch to Recipes section
+        document.querySelectorAll('nav button').forEach((b) => b.classList.remove('active'));
+        document.querySelector('nav button[data-section="recipes"]').classList.add('active');
+        document.querySelectorAll('main > section').forEach((sec) => sec.classList.add('section-hidden'));
+        document.getElementById('recipes').classList.remove('section-hidden');
+      });
       li.appendChild(span);
+      // Delete button
       const delBtn = document.createElement('button');
       delBtn.classList.add('close-btn');
       delBtn.title = 'Delete recipe';
@@ -269,6 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (weekStart) {
             renderPlan(getWeekStart(weekStart));
           }
+          showToast(`Deleted recipe: ${recipe.title}`);
         }
       });
       li.appendChild(delBtn);
@@ -307,6 +422,8 @@ document.addEventListener('DOMContentLoaded', () => {
         pantry = pantry.filter((p) => p.id !== item.id);
         saveData();
         renderPantry();
+        // Notify the user
+        showToast(`Removed from pantry: ${item.name}`);
       });
       li.appendChild(delBtn);
       listEl.appendChild(li);
@@ -340,6 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   qty: parseFloat(ing.qty) || 0,
                   unitId: ing.unitId,
                   sectionId: ing.sectionId,
+                  covered: false,
                 };
               } else {
                 aggregated[key].qty += parseFloat(ing.qty) || 0;
@@ -349,65 +467,78 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
-    // Subtract pantry quantities
+    // Subtract pantry quantities, with unit conversions
     Object.keys(aggregated).forEach((key) => {
       const item = aggregated[key];
-      // Find matching pantry entries (same name and unit)
-      const pantryMatches = pantry.filter(
-        (p) => p.name.toLowerCase() === item.name.toLowerCase() && p.unitId === item.unitId,
-      );
-      const totalPantryQty = pantryMatches.reduce(
-        (sum, p) => sum + parseFloat(p.qty || 0),
-        0,
-      );
-      item.qty = item.qty - totalPantryQty;
-    });
-    // Remove items with zero or negative qty
-    const needed = Object.values(aggregated).filter((i) => i.qty > 0);
-    // Group by section
-    const groups = {};
-    needed.forEach((item) => {
-      const sec = item.sectionId || 'misc';
-      if (!groups[sec]) groups[sec] = [];
-      groups[sec].push(item);
-    });
-    // Sort groups by predefined section order
-    const sortedSections = sections.slice().sort((a, b) => a.sort - b.sort);
-    const listEl = document.getElementById('grocery-list');
-    listEl.innerHTML = '';
-    sortedSections.forEach((sec) => {
-      if (groups[sec.id] && groups[sec.id].length > 0) {
-        // Section header
-        const header = document.createElement('li');
-        header.textContent = sec.name;
-        header.style.fontWeight = 'bold';
-        listEl.appendChild(header);
-        groups[sec.id].forEach((item) => {
-          const li = document.createElement('li');
-          // Format quantity with up to 2 decimals
-          const qtyStr = parseFloat(item.qty.toFixed(2));
-          const unitObj = units.find((u) => u.id === item.unitId);
-          li.textContent = `${qtyStr} ${unitObj ? unitObj.short : ''} ${item.name}`;
-          listEl.appendChild(li);
-        });
+      // Find matching pantry entries (same name, convertible units)
+      pantry.forEach((p) => {
+        if (p.name.toLowerCase() === item.name.toLowerCase()) {
+          if (p.unitId === item.unitId) {
+            item.qty -= parseFloat(p.qty || 0);
+          } else {
+            // Try converting pantry qty to item's unit
+            const converted = convertUnit(parseFloat(p.qty || 0), p.unitId, item.unitId);
+            if (converted !== null) {
+              item.qty -= converted;
+            }
+          }
+        }
+      });
+      if (item.qty <= 0) {
+        item.covered = true;
+        item.qty = 0;
       }
     });
-    // Misc group for any other items not mapped to known sections
-    Object.keys(groups).forEach((secId) => {
-      if (!sections.find((s) => s.id === secId) && groups[secId].length > 0) {
-        const header = document.createElement('li');
-        header.textContent = 'Other';
-        header.style.fontWeight = 'bold';
-        listEl.appendChild(header);
-        groups[secId].forEach((item) => {
-          const li = document.createElement('li');
-          const qtyStr = parseFloat(item.qty.toFixed(2));
-          const unitObj = units.find((u) => u.id === item.unitId);
-          li.textContent = `${qtyStr} ${unitObj ? unitObj.short : ''} ${item.name}`;
-          listEl.appendChild(li);
-        });
+    // Build list items array, merging carriedItems and preserving previous check state
+    let items = Object.values(aggregated);
+    // Include carried over items if present
+    if (carriedItems && carriedItems.length > 0) {
+      carriedItems.forEach((ci) => {
+        // Attempt to find matching item by name and unit and section
+        const idx = items.findIndex(
+          (it) =>
+            it.name.toLowerCase() === ci.name.toLowerCase() &&
+            it.unitId === ci.unitId &&
+            it.sectionId === ci.sectionId,
+        );
+        if (idx >= 0) {
+          items[idx].qty += ci.qty;
+          items[idx].covered = false;
+        } else {
+          // Clone carried item and mark as not covered
+          items.push({ ...ci, covered: false, checked: ci.checked || false });
+        }
+      });
+    }
+    // Round quantities to 2 decimals
+    items.forEach((i) => {
+      i.qty = parseFloat(i.qty.toFixed(2));
+    });
+    // Restore checked state from previous last list if same item exists
+    items.forEach((i) => {
+      i.checked = false;
+      // Generate key to match previous list items
+      const key = `${i.name.toLowerCase()}|${i.unitId}|${i.sectionId}`;
+      if (lastList && lastList.items && lastList.weekStart === weekStart) {
+        const prev = lastList.items.find(
+          (pi) => `${pi.name.toLowerCase()}|${pi.unitId}|${pi.sectionId}` === key,
+        );
+        if (prev) {
+          i.checked = prev.checked;
+        }
       }
     });
+    // Save lastList for this week
+    lastList = { weekStart, items };
+    saveData();
+    // Show list controls
+    document.getElementById('list-controls').classList.remove('section-hidden');
+    // Uncheck hide toggles by default
+    document.getElementById('hide-checked').checked = false;
+    document.getElementById('hide-covered').checked = true;
+    // Render interactive list
+    renderGroceryList();
+    showToast('Generated grocery list');
   }
 
   /**
@@ -508,25 +639,53 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Please add at least one ingredient.');
         return;
       }
-      const newRecipe = {
-        id: generateId(),
-        title,
-        instructions,
-        ingredients: ingList,
-      };
-      recipes.push(newRecipe);
+      if (editingRecipeId) {
+        // Update existing recipe
+        const recipe = recipes.find((r) => r.id === editingRecipeId);
+        if (recipe) {
+          recipe.title = title;
+          recipe.instructions = instructions;
+          recipe.ingredients = ingList;
+          // Also update any plans referencing this recipe by id - they will reference same id so no change needed
+        }
+        showToast(`Updated recipe: ${title}`);
+      } else {
+        // Create new recipe
+        const newRecipe = {
+          id: generateId(),
+          title,
+          instructions,
+          ingredients: ingList,
+        };
+        recipes.push(newRecipe);
+        showToast(`Saved recipe: ${title}`);
+      }
       saveData();
-      // Reset form
+      // Reset editing state and form
+      editingRecipeId = null;
+      document.querySelector('#recipe-form button.primary').textContent = 'Save Recipe';
+      document.getElementById('cancel-edit').classList.add('section-hidden');
+      // Clear form fields
       titleInput.value = '';
       instInput.value = '';
       document.getElementById('ingredients-container').innerHTML = '';
       addIngredientRow();
       renderRecipeList();
-      // Re‑render plan selects to include the new recipe
+      // Re‑render plan selects to include the new or updated recipe
       const weekStartVal = document.getElementById('week-start').value;
       if (weekStartVal) {
         renderPlan(getWeekStart(weekStartVal));
       }
+    });
+    // Cancel edit handler
+    document.getElementById('cancel-edit').addEventListener('click', () => {
+      editingRecipeId = null;
+      document.querySelector('#recipe-form button.primary').textContent = 'Save Recipe';
+      document.getElementById('cancel-edit').classList.add('section-hidden');
+      // Reset form
+      form.reset();
+      document.getElementById('ingredients-container').innerHTML = '';
+      addIngredientRow();
     });
   }
 
@@ -564,6 +723,8 @@ document.addEventListener('DOMContentLoaded', () => {
       populateUnitSelect(document.getElementById('pantry-unit'));
       populateSectionSelect(document.getElementById('pantry-section'));
       renderPantry();
+      // Provide feedback to the user
+      showToast(`Added to pantry: ${name}`);
     });
   }
 
@@ -582,6 +743,23 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPlan(initialWeek);
     weekStartInput.addEventListener('change', () => {
       const ws = getWeekStart(weekStartInput.value);
+      // If we have a previous list with unchecked items and are changing to a new week, ask to carry forward
+      if (lastList && lastList.weekStart && lastList.items && lastList.items.length > 0 && lastList.weekStart !== ws) {
+        const leftovers = lastList.items.filter((i) => !i.checked && i.qty > 0);
+        if (leftovers.length > 0) {
+          const confirmCarry = confirm(
+            'Carry forward leftover items from your previous list into the new week?\nThese items were not checked off in your last list.',
+          );
+          if (confirmCarry) {
+            carriedItems = leftovers.map((i) => ({ ...i }));
+            // Optionally clear them from lastList or mark them as checked
+          } else {
+            carriedItems = [];
+          }
+        } else {
+          carriedItems = [];
+        }
+      }
       renderPlan(ws);
     });
   }
@@ -593,6 +771,221 @@ document.addEventListener('DOMContentLoaded', () => {
     document
       .getElementById('generate-list')
       .addEventListener('click', generateGroceryList);
+    // List control toggles
+    document.getElementById('hide-checked').addEventListener('change', () => {
+      renderGroceryList();
+    });
+    document.getElementById('hide-covered').addEventListener('change', () => {
+      renderGroceryList();
+    });
+    // Copy list to clipboard
+    document.getElementById('copy-list').addEventListener('click', () => {
+      const plainText = buildPlainList();
+      navigator.clipboard
+        .writeText(plainText)
+        .then(() => showToast('List copied to clipboard'))
+        .catch(() => alert('Failed to copy'));
+    });
+    // Print list
+    document.getElementById('print-list').addEventListener('click', () => {
+      window.print();
+    });
+  }
+
+  /**
+   * Set up export and import buttons in Settings section.
+   */
+  function setupSettings() {
+    const exportBtn = document.getElementById('export-data');
+    const importBtn = document.getElementById('import-data');
+    const fileInput = document.getElementById('import-file');
+    exportBtn.addEventListener('click', () => {
+      const data = {
+        recipes,
+        pantry,
+        weeks,
+        lastList,
+      };
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().substr(0, 10);
+      a.download = `grocery_planner_backup_${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Backup downloaded');
+    });
+    importBtn.addEventListener('click', () => {
+      fileInput.value = '';
+      fileInput.click();
+    });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          recipes = data.recipes || [];
+          pantry = data.pantry || [];
+          weeks = data.weeks || {};
+          lastList = data.lastList || { weekStart: null, items: [] };
+          saveData();
+          // Rebuild UI
+          renderRecipeList();
+          renderPantry();
+          const wsInput = document.getElementById('week-start');
+          if (wsInput.value) {
+            const ws = getWeekStart(wsInput.value);
+            renderPlan(ws);
+          }
+          // If a list was previously saved for this week, render it
+          if (lastList && lastList.weekStart === getWeekStart(wsInput.value)) {
+            document.getElementById('list-controls').classList.remove('section-hidden');
+            renderGroceryList();
+          }
+          showToast('Data imported successfully');
+        } catch (err) {
+          alert('Failed to import data: invalid file format');
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  /**
+   * Build a plain text representation of the current grocery list for copying.
+   * Groups items by section and respects the hide toggles.
+   */
+  function buildPlainList() {
+    if (!lastList || !lastList.items) return '';
+    const hideChecked = document.getElementById('hide-checked').checked;
+    const hideCovered = document.getElementById('hide-covered').checked;
+    // Group by section
+    const groups = {};
+    lastList.items.forEach((item) => {
+      if (hideCovered && item.covered) return;
+      if (hideChecked && item.checked) return;
+      const sec = item.sectionId || 'misc';
+      if (!groups[sec]) groups[sec] = [];
+      groups[sec].push(item);
+    });
+    let text = '';
+    const sortedSections = sections.slice().sort((a, b) => a.sort - b.sort);
+    sortedSections.forEach((sec) => {
+      if (groups[sec.id] && groups[sec.id].length > 0) {
+        text += `${sec.name}\n`;
+        groups[sec.id].forEach((item) => {
+          const unitObj = units.find((u) => u.id === item.unitId);
+          text += `- ${item.qty} ${unitObj ? unitObj.short : ''} ${item.name}\n`;
+        });
+        text += '\n';
+      }
+    });
+    // Other sections
+    Object.keys(groups).forEach((secId) => {
+      if (!sections.find((s) => s.id === secId)) {
+        text += 'Other\n';
+        groups[secId].forEach((item) => {
+          const unitObj = units.find((u) => u.id === item.unitId);
+          text += `- ${item.qty} ${unitObj ? unitObj.short : ''} ${item.name}\n`;
+        });
+        text += '\n';
+      }
+    });
+    return text.trim();
+  }
+
+  /**
+   * Render the grocery list interactively with checkboxes and section headers.
+   */
+  function renderGroceryList() {
+    const listEl = document.getElementById('grocery-list');
+    listEl.innerHTML = '';
+    if (!lastList || !lastList.items) return;
+    const hideChecked = document.getElementById('hide-checked').checked;
+    const hideCovered = document.getElementById('hide-covered').checked;
+    // Group items by section
+    const groups = {};
+    lastList.items.forEach((item, idx) => {
+      // Determine whether to include this item based on toggles
+      if (hideCovered && item.covered) return;
+      if (hideChecked && item.checked) return;
+      const sec = item.sectionId || 'misc';
+      if (!groups[sec]) groups[sec] = [];
+      groups[sec].push({ ...item, index: idx });
+    });
+    const sortedSections = sections.slice().sort((a, b) => a.sort - b.sort);
+    // Render known sections first
+    sortedSections.forEach((sec) => {
+      if (groups[sec.id] && groups[sec.id].length > 0) {
+        const header = document.createElement('li');
+        header.textContent = sec.name;
+        header.style.fontWeight = 'bold';
+        listEl.appendChild(header);
+        groups[sec.id].forEach((item) => {
+          const li = document.createElement('li');
+          if (item.covered) li.classList.add('covered');
+          // Create checkbox and label
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          const checkboxId = `gl-${item.index}`;
+          checkbox.id = checkboxId;
+          checkbox.checked = !!item.checked;
+          checkbox.addEventListener('change', () => {
+            lastList.items[item.index].checked = checkbox.checked;
+            saveData();
+            // If hideChecked is on, hide item on check
+            if (document.getElementById('hide-checked').checked) {
+              renderGroceryList();
+            }
+          });
+          const label = document.createElement('label');
+          label.setAttribute('for', checkboxId);
+          const unitObj = units.find((u) => u.id === item.unitId);
+          label.textContent = `${item.qty} ${unitObj ? unitObj.short : ''} ${item.name}`;
+          li.appendChild(checkbox);
+          li.appendChild(label);
+          listEl.appendChild(li);
+        });
+      }
+    });
+    // Render unknown sections
+    Object.keys(groups).forEach((secId) => {
+      if (!sections.find((s) => s.id === secId)) {
+        const header = document.createElement('li');
+        header.textContent = 'Other';
+        header.style.fontWeight = 'bold';
+        listEl.appendChild(header);
+        groups[secId].forEach((item) => {
+          const li = document.createElement('li');
+          if (item.covered) li.classList.add('covered');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          const checkboxId = `gl-${item.index}`;
+          checkbox.id = checkboxId;
+          checkbox.checked = !!item.checked;
+          checkbox.addEventListener('change', () => {
+            lastList.items[item.index].checked = checkbox.checked;
+            saveData();
+            if (document.getElementById('hide-checked').checked) {
+              renderGroceryList();
+            }
+          });
+          const label = document.createElement('label');
+          label.setAttribute('for', checkboxId);
+          const unitObj = units.find((u) => u.id === item.unitId);
+          label.textContent = `${item.qty} ${unitObj ? unitObj.short : ''} ${item.name}`;
+          li.appendChild(checkbox);
+          li.appendChild(label);
+          listEl.appendChild(li);
+        });
+      }
+    });
   }
 
   // Initialisation sequence
@@ -602,6 +995,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupPantryForm();
   setupWeekPlan();
   setupGroceryList();
+  setupSettings();
   renderRecipeList();
   renderPantry();
 });
